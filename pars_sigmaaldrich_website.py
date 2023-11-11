@@ -1,14 +1,9 @@
 import requests
 import re
-from api_params import get_data_pages, get_headers
+from api_params import get_product_parameters, get_headers, get_num_pages
 
 
-def get_num_pages(settings):
-    num_pages = settings.get("data", {}).get("getProductSearchResults", {}).get("metadata", {}).get("numPages")
-
-    return num_pages
-
-
+# Получение всех traceable продукта из JSON-ответа
 def get_all_traceable_values_product(attributes):
     traceable_values = []
     for attribute in attributes:
@@ -17,6 +12,7 @@ def get_all_traceable_values_product(attributes):
     return traceable_values
 
 
+# Получение номера traceable to USP продукта из JSON-ответа
 def get_traceable_to_usp_value_product(traceable_values):
     traceable_to_usp_value = ''
     for value in traceable_values:
@@ -28,24 +24,32 @@ def get_traceable_to_usp_value_product(traceable_values):
     return traceable_to_usp_value
 
 
-def get_product_values(url, headers):
-    param_api = get_data_pages()
+# Получение списка продуктов из JSON-ответа
+def fetch_product_list(url, headers, page):
+    param_api = get_product_parameters(page)
     response = requests.post(url, headers=headers, json=param_api).json()
+    product_list = response.get("data", {}).get("getProductSearchResults", {}).get("items", [])
+    return product_list
 
-    items = response.get("data", {}).get("getProductSearchResults", {}).get("items", [])
+
+# Получение полей продукта Product No., Description, USP
+def get_fields_of_all_products(url, headers, pages):
     description_all_products = []
 
-    for item in items:
-        attributes = item.get("attributes", [])
-        traceable_values = get_all_traceable_values_product(attributes)
-        traceable_to_usp_value = get_traceable_to_usp_value_product(traceable_values)
+    for page in range(1, pages + 1):
+        list_products_on_page = fetch_product_list(url, headers, page)
 
-        product_dict = {
-            'Product No.': item.get("productNumber"),
-            'Description': item.get("name"),
-            'USP Traceability': traceable_to_usp_value,
-        }
-        description_all_products.append(product_dict)
+        for item in list_products_on_page:
+            attributes = item.get("attributes", [])
+            traceable_values = get_all_traceable_values_product(attributes)
+            traceable_to_usp_value = get_traceable_to_usp_value_product(traceable_values)
+
+            product_dict = {
+                'Product No.': item.get("productNumber"),
+                'Description': item.get("name"),
+                'USP Traceability': traceable_to_usp_value,
+            }
+            description_all_products.append(product_dict)
 
     return description_all_products
 
@@ -53,12 +57,13 @@ def get_product_values(url, headers):
 def main():
     url = 'https://www.sigmaaldrich.com/api'
     headers = get_headers()
+    number_pages = get_num_pages(page=1)
+    all_products = get_fields_of_all_products(url, headers, number_pages)
 
-    # number_pages = get_num_pages(response)
-    all_products = get_product_values(url, headers)
-
+    count = 1
     for i in all_products:
-        print(i)
+        print(f'{count}. {i}')
+        count += 1
 
 
 if __name__ == '__main__':
