@@ -1,9 +1,12 @@
-def get_data_pages():
+import requests
+
+
+def get_product_parameters(pages):
     parameters = {
         "operationName": "CategoryProductSearch",
         "variables": {
             "searchTerm": None,
-            "page": 1,
+            "page": pages,
             "perPage": 20,
             "sort": "relevance",
             "selectedFacets": [
@@ -77,3 +80,14 @@ def get_headers():
     }
 
     return headers
+
+
+def get_num_pages(page=1):
+    param_api = get_product_parameters(page)
+    url = 'https://www.sigmaaldrich.com/api'
+    headers = get_headers()
+
+    response = requests.post(url, headers=headers, json=param_api).json()
+    num_pages = response.get("data", {}).get("getProductSearchResults", {}).get("metadata", {}).get("numPages")
+
+    return num_pages
