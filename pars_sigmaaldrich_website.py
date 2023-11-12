@@ -67,7 +67,7 @@ def main():
     all_products_with_price = get_product_data_without_price(url, headers, all_products)
     all_product_data = get_all_product_data(url, headers, all_products_with_price)
 
-    write_to_excel(all_product_data, 'product_data.csv')
+    write_to_csv(all_product_data, 'product_data.csv')
     write_to_json(all_product_data, 'product_data.json')
 
 
