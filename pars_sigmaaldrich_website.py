@@ -38,7 +38,7 @@ def get_all_product_data(url, headers, all_products):
     return result_list
 
 
-def write_to_excel(data, filename) -> None:
+def write_to_csv(data, filename) -> None:
     df = pd.DataFrame(data)
     df.columns = [
         'Product No.',
