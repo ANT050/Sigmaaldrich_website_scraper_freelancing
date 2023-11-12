@@ -114,7 +114,7 @@ def __fetch_product_list(url, headers, page):
 def get_main_product_fields(url, headers, pages=1):
     description_all_products = []
     count = 1
-    for page in range(1, 2):
+    for page in range(1, pages + 1):
         list_products_on_page = __fetch_product_list(url, headers, page)
 
         for item in list_products_on_page:
