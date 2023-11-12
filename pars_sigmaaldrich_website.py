@@ -1,69 +1,74 @@
+import json
 import requests
-import re
-from api_params import get_product_parameters, get_headers, get_num_pages
+import pandas as pd
+from request_headers import get_headers
+from basic_parameters import get_basic_product_parameters, get_num_pages, get_main_product_fields
+from additional_api_parameters import get_additional_product_parameters
+from cas_number import get_product_data_without_price
 
 
-# Получение всех traceable продукта из JSON-ответа
-def get_all_traceable_values_product(attributes):
-    traceable_values = []
-    for attribute in attributes:
-        if attribute.get("label") == "Agency":
-            traceable_values = attribute.get("values", [])
-    return traceable_values
+def get_all_product_data(url, headers, all_products):
+    result_list = []
+    count = 1
+    for product in all_products:
+        product_number = product['Product No.']
 
+        param_api = get_additional_product_parameters(product_number)
+        response = requests.post(url, headers=headers, json=param_api).json()
 
-# Получение номера traceable to USP продукта из JSON-ответа
-def get_traceable_to_usp_value_product(traceable_values):
-    traceable_to_usp_value = ''
-    for value in traceable_values:
-        if value.startswith("traceable to USP"):
-            match = re.search(r'\d+', value)
-            if match:
-                traceable_to_usp_value = match.group()
-            break
-    return traceable_to_usp_value
+        # Проверяем, есть ли данные в ответе
+        if 'data' in response and response['data'] is not None:
+            response_data = response['data']['getPricingForProduct'].get('materialPricing', [])
+        else:
+            response_data = response['errors']
 
-
-# Получение списка продуктов из JSON-ответа
-def fetch_product_list(url, headers, page):
-    param_api = get_product_parameters(page)
-    response = requests.post(url, headers=headers, json=param_api).json()
-    product_list = response.get("data", {}).get("getProductSearchResults", {}).get("items", [])
-    return product_list
-
-
-# Получение полей продукта Product No., Description, USP
-def get_fields_of_all_products(url, headers, pages):
-    description_all_products = []
-
-    for page in range(1, pages + 1):
-        list_products_on_page = fetch_product_list(url, headers, page)
-
-        for item in list_products_on_page:
-            attributes = item.get("attributes", [])
-            traceable_values = get_all_traceable_values_product(attributes)
-            traceable_to_usp_value = get_traceable_to_usp_value_product(traceable_values)
-
-            product_dict = {
-                'Product No.': item.get("productNumber"),
-                'Description': item.get("name"),
-                'USP Traceability': traceable_to_usp_value,
+        for pricing_info in response_data:
+            result_dict = {
+                'Product No.': product_number,
+                'Description': product.get('Description'),
+                'CAS': product.get('CAS'),
+                'Package Size': pricing_info.get("packageSize"),
+                'Price (Euro)': f'{pricing_info.get("currency")} {pricing_info.get("listPrice")}',
+                'USP Traceability': product.get('USP Traceability')
             }
-            description_all_products.append(product_dict)
+            print(f'{count}. {result_dict}')
+            count += 1
+            result_list.append(result_dict)
 
-    return description_all_products
+    return result_list
+
+
+def write_to_excel(data, filename) -> None:
+    df = pd.DataFrame(data)
+    df.columns = [
+        'Product No.',
+        'Description',
+        'CAS',
+        'Package Size',
+        'Price (Euro)',
+        'USP Traceability'
+    ]
+    df.to_csv(filename, index=False)
+
+
+def write_to_json(data, filename) -> None:
+    with open(filename, 'w', encoding='utf-8') as json_file:
+        json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
 def main():
     url = 'https://www.sigmaaldrich.com/api'
     headers = get_headers()
-    number_pages = get_num_pages(page=1)
-    all_products = get_fields_of_all_products(url, headers, number_pages)
 
-    count = 1
-    for i in all_products:
-        print(f'{count}. {i}')
-        count += 1
+    product_basic_parameters_api = get_basic_product_parameters(pages=1)
+    number_pages = get_num_pages(url, headers, product_basic_parameters_api)
+
+    all_products = get_main_product_fields(url, headers, number_pages)
+    all_products_with_price = get_product_data_without_price(url, headers, all_products)
+    all_product_data = get_all_product_data(url, headers, all_products_with_price)
+
+    write_to_excel(all_product_data, 'product_data.csv')
+    write_to_json(all_product_data, 'product_data.json')
 
 
 if __name__ == '__main__':
