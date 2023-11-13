@@ -1,4 +1,5 @@
 import requests
+from common_settings import threaded_get_product_info
 
 
 def __getting_cas_number(number):
@@ -34,24 +35,22 @@ def __getting_cas_number(number):
     return cas_number
 
 
-def get_product_data_without_price(url, headers, all_products):
-    result_list = []
-    count = 1
-    for product_info in all_products:
-        product_number = product_info['Product No.']
+def get_cas_number(product_info, url, headers):
+    product_number = product_info['Product No.']
+    param_api = __getting_cas_number(product_number)
+    response = requests.post(url, headers=headers, json=param_api).json()
+    response_data = response['data']['getProductDetail']['casNumber']
 
-        param_api = __getting_cas_number(product_number)
-        response = requests.post(url, headers=headers, json=param_api).json()
-        response_data = response['data']['getProductDetail']['casNumber']
+    result_dict = {
+        'Product No.': product_number,
+        'Description': product_info['Description'],
+        'USP Traceability': product_info['USP Traceability'],
+        'CAS': response_data
+    }
 
-        result_dict = {
-            'Product No.': product_number,
-            'Description': product_info['Description'],
-            'USP Traceability': product_info['USP Traceability'],
-            'CAS': response_data
-        }
-        print(f'{count}. {result_dict}')
-        count += 1
-        result_list.append(result_dict)
+    return result_dict
 
-    return result_list
+
+def get_product_data_without_price(url, headers, all_products, number_threads):
+    cas_numbers = threaded_get_product_info(url, headers, all_products, get_cas_number, number_threads)
+    return cas_numbers
