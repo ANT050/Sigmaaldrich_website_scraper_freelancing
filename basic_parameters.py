@@ -123,14 +123,12 @@ def get_main_product_fields(url, headers, pages=1):
             traceable_to_usp_value = __get_traceable_to_usp_value_product(traceable_values)
 
             product_dict = {
-                'Product No.': item.get("productNumber"),
-                'Description': __clean_html_tags(item.get("name")),
+                'Product No.': item.get("productNumber", ''),
+                'Description': __clean_html_tags(item.get("name", '')),
                 'USP Traceability': traceable_to_usp_value,
             }
             print(f'{count}. {product_dict}')
             count += 1
             description_all_products.append(product_dict)
 
-    sorted_products = sorted(description_all_products, key=lambda x: (x['Product No.'], int(x['Product No.'][3:])))
-
-    return sorted_products
+    return description_all_products
